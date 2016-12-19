@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudCheckr Reporting AWS Account Setup
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: CloudCheckr Cross-Account AWS Credentials
+      Parameters:
+      - RoleName
+      - ExternalId
+      - AccountId
+    ParameterLabels:
+      AccountId:
+        default: 'CloudCheckr Provided Account ID:'
+      ExternalId:
+        default: 'CloudCheckr Provided External ID:'
+      RoleName:
+        default: 'Local Role Name for CloudCheckr access:'
+Outputs:
+  Role:
+    Description: Role ARN
+    Value: !GetAtt CrossAccountAccess.Arn
+Parameters:
+  AccountId:
+    AllowedPattern: '\d{12}'
+    Default: '352813966189'
+    Type: String
+  ExternalId:
+    AllowedPattern: 'CC-[0-9A-F]+'
+    Default: CC-0123456789ABCDEF0123456789ABCDEF
+    Type: String
+  RoleName:
+    AllowedPattern: '[\w+=,.@-]{1,64}'
+    Default: CloudCheckr
+    Type: String
+Resources:
+  CrossAccountAccess:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition:
+            StringEquals:
+              sts:ExternalId: !Ref ExternalId
+          Effect: Allow
+          Principal:
+            AWS:
+              !Sub
+                - 'arn:aws:iam::${AccountId}:root'
+                - { AccountId: !Ref AccountId }
+          Sid: AllowCloudCheckrAssumeRole
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSCloudHSMReadOnlyAccess
+      - arn:aws:iam::aws:policy/AWSSupportAccess
+      - arn:aws:iam::aws:policy/ReadOnlyAccess
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - dynamodb:GetItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - ec2:GetConsoleOutput
+            - kinesis:Get*
+            - lambda:GetFunction
+            - s3:GetObject
+            - sdb:Select*
+            - sqs:ReceiveMessage
+            Effect: Deny
+            Resource: '*'
+            Sid: AttenuateReadOnly
+          Version: '2012-10-17'
+        PolicyName: CloudCheckrAttenuateReadOnly
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - sdb:DomainMetadata
+            Effect: Allow
+            Resource: '*'
+            Sid: AdditionalReadOnly
+          Version: '2012-10-17'
+        PolicyName: CloudCheckrAdditional
+      RoleName: !Ref RoleName
+    Type: AWS::IAM::Role
