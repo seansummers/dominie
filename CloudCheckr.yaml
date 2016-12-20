@@ -1,12 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudCheckr Reporting AWS Account Setup
+Description: CloudCheckr Reporting Setup
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
     - Label:
         default: CloudCheckr Cross-Account AWS Credentials
       Parameters:
-      - RoleName
       - ExternalId
       - AccountId
     ParameterLabels:
@@ -14,12 +13,10 @@ Metadata:
         default: 'CloudCheckr Provided Account ID:'
       ExternalId:
         default: 'CloudCheckr Provided External ID:'
-      RoleName:
-        default: 'Local Role Name for CloudCheckr access:'
 Outputs:
   Role:
     Description: Role ARN
-    Value: !GetAtt CrossAccountAccess.Arn
+    Value: !GetAtt CloudCheckr.Arn
 Parameters:
   AccountId:
     AllowedPattern: '\d{12}'
@@ -29,26 +26,19 @@ Parameters:
     AllowedPattern: 'CC-[0-9A-F]+'
     Default: CC-0123456789ABCDEF0123456789ABCDEF
     Type: String
-  RoleName:
-    AllowedPattern: '[\w+=,.@-]{1,64}'
-    Default: CloudCheckr
-    Type: String
 Resources:
-  CrossAccountAccess:
+  CloudCheckr:
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-        - Action:
-          - sts:AssumeRole
+        - Action: sts:AssumeRole
           Condition:
             StringEquals:
               sts:ExternalId: !Ref ExternalId
           Effect: Allow
           Principal:
-            AWS:
-              !Sub
-                - 'arn:aws:iam::${AccountId}:root'
-                - { AccountId: !Ref AccountId }
+            AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
           Sid: AllowCloudCheckrAssumeRole
         Version: '2012-10-17'
       ManagedPolicyArns:
@@ -59,6 +49,9 @@ Resources:
       - PolicyDocument:
           Statement:
           - Action:
+            - config:Describe*
+            - config:Get*
+            - config:ListDiscoveredResources
             - dynamodb:GetItem
             - dynamodb:BatchGetItem
             - dynamodb:Query
@@ -67,6 +60,7 @@ Resources:
             - kinesis:Get*
             - lambda:GetFunction
             - s3:GetObject
+            - s3:GetObjectVersion
             - sdb:Select*
             - sqs:ReceiveMessage
             Effect: Deny
@@ -76,12 +70,9 @@ Resources:
         PolicyName: CloudCheckrAttenuateReadOnly
       - PolicyDocument:
           Statement:
-          - Action:
-            - sdb:DomainMetadata
+          - Action: sdb:DomainMetadata
             Effect: Allow
             Resource: '*'
             Sid: AdditionalReadOnly
           Version: '2012-10-17'
         PolicyName: CloudCheckrAdditional
-      RoleName: !Ref RoleName
-    Type: AWS::IAM::Role
