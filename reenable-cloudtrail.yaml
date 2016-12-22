@@ -14,12 +14,9 @@ Resources:
       Description: Triggers lambda when CloudTrail is turned off.
       EventPattern:
         detail:
-          eventName:
-          - StopLogging
-          eventSource:
-          - cloudtrail.amazonaws.com
-        detail-type:
-        - AWS API Call via CloudTrail
+          eventName: [StopLogging]
+          eventSource: [cloudtrail.amazonaws.com]
+        detail-type: [AWS API Call via CloudTrail]
       State: ENABLED
       Targets:
       - Arn: !GetAtt StopLoggingReEnable.Arn
@@ -31,19 +28,22 @@ Resources:
       Code:
         ZipFile: |
           import logging
+          from json import dumps
           import boto3
           log = logging.getLogger()
-          log_entry = "CloudTrail with ARN '{}' was automatically reenabled."
-          start_logging = boto3.client('cloudtrail').start_logging
-          def lambda_handler(event=None, context=None):
-            # InputPath $.detail
-            event_name = event['eventName']
-            if event_name == 'StopLogging':
-              cloud_trail_name = event['requestParameters']['name']
-              start_logging(Name=cloud_trail_name)
-              log.warn(log_entry.format(cloud_trail_name))
+          cloudtrail_start_logging = boto3.client('cloudtrail').start_logging
+          event_url = 'https://console.aws.amazon.com/cloudtrail/home?region={awsRegion}#/events?EventId={eventID}'
+          keys = ('awsRegion', 'eventID', 'userIdentity')
+          def lambda_handler(detail=None, context=None):
+            assert detail.get('eventName') == 'StopLogging', dumps(detail, sort_keys=True)
+            arn = detail['requestParameters']['name']
+            response = cloudtrail_start_logging(Name=arn)
+            if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+              data = {_: detail[_] for _ in keys}
+              data.update(arn=arn, url=event_url.format(**data))
             else:
-              log.error('Unknown event detail: {}'.format(event))
+              data = dict(detail=detail, ERROR=response)
+            log.warn(dumps(data, sort_keys=True))
       Description: OIT InfoSec Auditing Suite
       Handler: index.lambda_handler
       MemorySize: 128
