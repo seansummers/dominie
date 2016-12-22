@@ -94,3 +94,7 @@ Resources:
           Action: lambda:InvokeFunction
           NotResource: !GetAtt StopLoggingReEnable.Arn
       Roles: [!Ref StopLoggingReEnableRole]
+Outputs:
+  LogArn:
+    Description: StopLoggingReEnable Cloudwatch Log ARN
+    Value: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${StopLoggingReEnable}:*
