@@ -32,15 +32,12 @@ Resources:
           import boto3
           log = logging.getLogger()
           cloudtrail_start_logging = boto3.client('cloudtrail').start_logging
-          event_url = 'https://console.aws.amazon.com/cloudtrail/home?region={awsRegion}#/events?EventId={eventID}'
-          keys = ('awsRegion', 'eventID', 'userIdentity')
           def lambda_handler(detail=None, context=None):
             assert detail.get('eventName') == 'StopLogging', dumps(detail, sort_keys=True)
             arn = detail['requestParameters']['name']
             response = cloudtrail_start_logging(Name=arn)
             if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-              data = {_: detail[_] for _ in keys}
-              data.update(arn=arn, url=event_url.format(**data))
+              data = dict(arn=arn, eventID=detail['eventID'])
             else:
               data = dict(detail=detail, ERROR=response)
             log.warn(dumps(data, sort_keys=True))
