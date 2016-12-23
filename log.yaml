@@ -21,7 +21,7 @@ Resources:
       BucketName: !Sub log-${AccountAlias}-${AWS::AccountId}
       AccessControl: LogDeliveryWrite
       LoggingConfiguration:
-        LogFilePrefix: !Sub access_log/${AccountAlias}/LoggingBucket/
+        LogFilePrefix: !Sub ${AccountAlias}/access_log/
       VersioningConfiguration:
         Status: Enabled
       LifecycleConfiguration:
