@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Account S3 Logging Bucket
+Parameters:
+  AccountAlias:
+    Type: String
+    AllowedPattern: '[a-z0-9]{3,63}'
+    Description: The account alias
+  AgeToInfrequentAccess:
+    Type: Number
+    Description: Days before files migrate to InfrequentAccess
+    Default: 90
+  AgeToGlacier:
+    Type: Number
+    Description: Days before files migrate to glacier
+    Default: 180
+Resources:
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub log-${AccountAlias}-${AWS::AccountId}
+      AccessControl: LogDeliveryWrite
+      LoggingConfiguration:
+        LogFilePrefix: !Sub access_log/${AccountAlias}/LoggingBucket/
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+        - Status: Enabled
+          Transitions:
+          - StorageClass: STANDARD_IA
+            TransitionInDays: !Ref AgeToInfrequentAccess
+          - StorageClass: GLACIER
+            TransitionInDays: !Ref AgeToGlacier
+      Tags:
+      - Key: Environment
+        Value: !Ref AccountAlias
+  LoggingBucketPolicy:
+   Type: AWS::S3::BucketPolicy
+   Properties:
+     Bucket: !Ref LoggingBucket
+     PolicyDocument:
+       Version: '2012-10-17'
+       Statement:
+       - Sid: AclCheck
+         Resource: !Sub arn:aws:s3:::${LoggingBucket}
+         Effect: Allow
+         Action: s3:GetBucketAcl
+         Principal:
+           Service:
+           - cloudtrail.amazonaws.com
+           - config.amazonaws.com
+           - !Sub logs.${AWS::Region}.amazonaws.com
+       - Sid: CloudTrail
+         Resource:
+         - !Sub arn:aws:s3:::${LoggingBucket}/${AccountAlias}/AWSLogs/${AWS::AccountId}/CloudTrail/*
+         - !Sub arn:aws:s3:::${LoggingBucket}/${AccountAlias}/AWSLogs/${AWS::AccountId}/CloudTrail-Digest/*
+         Effect: Allow
+         Action: s3:PutObject
+         Principal:
+           Service: cloudtrail.amazonaws.com
+         Condition:
+           StringEquals:
+             s3:x-amz-acl: bucket-owner-full-control
+       - Sid: Config
+         Resource: !Sub arn:aws:s3:::${LoggingBucket}/${AccountAlias}/AWSLogs/${AWS::AccountId}/Config/*
+         Effect: Allow
+         Action: s3:PutObject
+         Principal:
+           Service: config.amazonaws.com
+         Condition:
+           StringEquals:
+             s3:x-amz-acl: bucket-owner-full-control
+       - Sid: CloudWatchExport
+         Resource:
+         - !Sub arn:aws:s3:::${LoggingBucket}/aws-logs-write-test
+         - !Sub arn:aws:s3:::${LoggingBucket}/exportedlogs/*
+         Effect: Allow
+         Action: s3:PutObject
+         Principal:
+           Service: !Sub logs.${AWS::Region}.amazonaws.com
+         Condition:
+           StringEquals:
+             s3:x-amz-acl: bucket-owner-full-control
