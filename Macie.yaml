@@ -1,0 +1,60 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+
+Description: AWS MACIE Cloudformation script for master account.
+
+
+Parameters:
+
+  MasterAccount:
+    Type: String
+    Default: 381664251289
+    AllowedPattern: "[0-9]*"
+    MinLength: 11
+    MaxLength: 12
+    ConstraintDescription: "Must be a 12 digit AWS Account Number"
+
+
+Resources:
+
+  RoleSetupMacie:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSMacieServiceCustomerSetupRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal: {Service: macie.amazonaws.com}
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonMacieSetupRole
+
+  RoleSServiceMacie:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSMacieServiceCustomerServiceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal: {Service: macie.amazonaws.com}
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonMacieServiceRole
+
+  RoleCustomerMacie:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSMacieServiceCustomerHandshakeRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal: {Service: macie.amazonaws.com}
+          Condition:
+            StringEquals:
+              "sts:ExternalId": !Ref MasterAccount
+...
